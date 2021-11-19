@@ -6,11 +6,15 @@ class InMemoryUserRepository implements IUserRepository {
 
 	/** @var User[] */
 	private array $users = [];
+
 	public function find(string $xuid): ?User{
-		return clone $this->users[$xuid] ?? null;
+		if(isset($this->users[$xuid])){
+			return $this->users[$xuid];
+		}
+		return null;
 	}
 
-	public function save(User $user): void{
+	public function attach(User $user): void{
 		$this->users[$user->getXuid()] = $user;
 	}
 }

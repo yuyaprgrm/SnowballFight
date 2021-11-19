@@ -9,10 +9,14 @@
 			"email": "famima65536@gmail.com"
 		}
 	],
-	"require": {
-	},
 	"require-dev": {
 		"pocketmine/pocketmine-mp": "^4.0.0-BETA11",
-		"phpstan/phpstan": "^1.1.2"
+		"phpstan/phpstan": "^1.1.2",
+		"phpunit/phpunit": "^9"
+	},
+	"autoload": {
+		"psr-4": {
+			"": "src/"
+		}
 	}
 }
