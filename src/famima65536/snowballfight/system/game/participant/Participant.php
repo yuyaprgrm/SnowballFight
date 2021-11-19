@@ -15,6 +15,8 @@ class Participant {
 	private IGame $game;
 	private Team $team;
 
+	private ?Player $player = null;
+
 	public function __construct(private string $xuid, IGame $game, Team $team){
 		$this->game = $game;
 		$this->team = $team;
@@ -63,6 +65,14 @@ class Participant {
 
 	public function getTeam(): Team{
 		return $this->team;
+	}
+
+	public function attach(Player $player){
+		$this->player = $player;
+	}
+
+	public function asPlayer(): ?Player{
+		return $this->player;
 	}
 
 	public function equalToUser(User $user){

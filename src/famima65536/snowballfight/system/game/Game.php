@@ -20,6 +20,7 @@ class Game implements IGame {
 	}
 
 	protected int $id;
+	protected int $phase = IGame::PHASE_PREPARE;
 
 	/** @var SplObjectStorage<Participant> */
 	protected SplObjectStorage $participants;
@@ -110,13 +111,14 @@ class Game implements IGame {
 	 * @inheritDoc
 	 */
 	public function start(): void{
+		$this->phase = IGame::PHASE_IN_GAME;
 	}
 
 	/**
 	 * @inheritDoc
 	 */
 	public function finish(): void{
-
+		$this->phase = IGame::PHASE_FINISHED;
 	}
 
 	/**
@@ -156,4 +158,7 @@ class Game implements IGame {
 		return $this->memberPerTeam;
 	}
 
+	public function getPhase(): int{
+		return $this->phase;
+	}
 }

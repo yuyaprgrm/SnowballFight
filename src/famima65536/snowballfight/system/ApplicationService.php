@@ -14,12 +14,16 @@ use famima65536\snowballfight\system\game\Team;
 use famima65536\snowballfight\system\user\IUserRepository;
 use famima65536\snowballfight\utils\Chat;
 use InvalidArgumentException;
+use pocketmine\item\Snowball;
+use pocketmine\item\VanillaItems;
 use pocketmine\player\Player;
+use pocketmine\plugin\PluginBase;
+use pocketmine\scheduler\ClosureTask;
 use pocketmine\Server;
 
 class ApplicationService {
 
-	public function __construct(private GameRepository $gameRepository, private IUserRepository $userRepository, private ParticipantRepository $participantRepository, private GameService $gameService){
+	public function __construct(private GameRepository $gameRepository, private IUserRepository $userRepository, private ParticipantRepository $participantRepository, private GameService $gameService, private PluginBase $plugin){
 	}
 
 	public function join(Player $player): Participant{
@@ -32,12 +36,14 @@ class ApplicationService {
 
 		$game = $this->gameService->chooseGameToJoin(new GamePolicy());
 		if($game === null){
-			$game = new Game(2, 1, new TestStage(Server::getInstance()->getWorldManager()->getDefaultWorld()));
+			$game = new Game(2, 3, new TestStage(Server::getInstance()->getWorldManager()->getDefaultWorld()));
 			$this->gameRepository->attach($game);
+			$this->plugin->getScheduler()->scheduleRepeatingTask(new StartGameTask($this, $game, 30), 20);
 		}
 
 		$user = $this->userRepository->find($xuid);
 		$participant = $game->join($user);
+		$participant->attach($player);
 		$this->participantRepository->attach($participant);
 
 		$player->setDisplayName($participant->getTeam()->getColorFormat().$player->getName()."§f");
@@ -56,9 +62,11 @@ class ApplicationService {
 		if($game === null){
 			$game = new Game(10, 1, new TestStage(Server::getInstance()->getWorldManager()->getDefaultWorld()));
 			$this->gameRepository->attach($game);
+			$this->plugin->getScheduler()->scheduleRepeatingTask(new StartGameTask($this, $game, 30), 20);
 		}
 		$user = $this->userRepository->find($xuid);
 		$participant = $game->join($user);
+		$participant->attach($player);
 		$this->participantRepository->attach($participant);
 
 		$player->setDisplayName($participant->getTeam()->getColorFormat().$player->getName()."§f");
@@ -81,27 +89,28 @@ class ApplicationService {
 	}
 
 	public function startGame(Game $game): bool{
+		if($game->getPhase() !== IGame::PHASE_PREPARE){
+			throw new \LogicException("game is in illegal phase");
+		}
+
+		$snowball = VanillaItems::SNOWBALL()->setCount(16);
+
 		foreach($game->getTeams() as $team){
 			/** @var Team $team*/
 			$position = $game->getStage()->getSpawnPosition($team->getId());
 			foreach($team->getMembers() as $member){
 				/** @var Participant $member */
-				$player = $this->getPlayerByXUID($member->getXuid());
-				$player?->teleport($position);
-				$player->sendMessage("リス地に移動しました");
+				$player = $member->asPlayer();
+				if($player !== null){
+					$player->getInventory()->setItemInHand($snowball);
+					$player->teleport($position);
+				}
 			}
 		}
+
+		$game->start();
 
 		return true;
-	}
-
-	private function getPlayerByXUID(string $xuid): ?Player{
-		foreach(Server::getInstance()->getOnlinePlayers() as $player){
-			if($player->getXuid() === $xuid){
-				return $player;
-			}
-		}
-		return null;
 	}
 
 }

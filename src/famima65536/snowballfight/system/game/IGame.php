@@ -9,11 +9,16 @@ use SplObjectStorage;
 
 interface IGame {
 
+	const PHASE_PREPARE = 0;
+	const PHASE_IN_GAME = 1;
+	const PHASE_FINISHED = 2;
 	/**
 	 * return game id
 	 * @return int
 	 */
 	public function getId(): int;
+
+	public function getPhase(): int;
 
 	/**
 	 * call to join participant into game.

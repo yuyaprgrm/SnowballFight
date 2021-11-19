@@ -19,11 +19,14 @@ use pocketmine\color\Color;
 use pocketmine\event\entity\ProjectileHitEntityEvent;
 use pocketmine\event\Listener;
 use pocketmine\event\player\PlayerInteractEvent;
+use pocketmine\event\player\PlayerItemUseEvent;
 use pocketmine\event\player\PlayerJoinEvent;
 use pocketmine\event\player\PlayerLoginEvent;
 use pocketmine\event\player\PlayerMoveEvent;
 use pocketmine\event\player\PlayerQuitEvent;
 use famima65536\snowballfight\Loader;
+use pocketmine\item\Snowball;
+use pocketmine\item\VanillaItems;
 use pocketmine\network\mcpe\protocol\types\entity\PlayerMetadataFlags;
 use pocketmine\player\Player;
 use pocketmine\Server;
@@ -39,7 +42,7 @@ class EventListener implements Listener {
 		$this->plugin = $plugin;
 		$this->userRepository = new InMemoryUserRepository;
 		$gameRepository = new GameRepository();
-		$this->applicationService = new ApplicationService($gameRepository, $this->userRepository, new ParticipantRepository(), new GameService($gameRepository));
+		$this->applicationService = new ApplicationService($gameRepository, $this->userRepository, new ParticipantRepository(), new GameService($gameRepository), $plugin);
 	}
 
 	public function onPlayerLogin(PlayerLoginEvent $event): void{
@@ -92,5 +95,11 @@ class EventListener implements Listener {
 
 	public function onMove(PlayerMoveEvent $event){
 		$event->getPlayer()->sendTip((string) $event->getPlayer()->getPosition());
+	}
+
+	public function onUseItem(PlayerItemUseEvent $event){
+		if($event->getItem() instanceof Snowball){
+			$event->getPlayer()->getInventory()->setItemInHand(VanillaItems::SNOWBALL()->setCount(16));
+		}
 	}
 }
