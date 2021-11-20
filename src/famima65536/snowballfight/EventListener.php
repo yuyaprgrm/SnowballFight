@@ -5,6 +5,7 @@ namespace famima65536\snowballfight;
 use famima65536\snowballfight\system\ApplicationService;
 use famima65536\snowballfight\system\game\GameRepository;
 use famima65536\snowballfight\system\game\GameService;
+use famima65536\snowballfight\system\game\IGame;
 use famima65536\snowballfight\system\game\participant\ParticipantRepository;
 use famima65536\snowballfight\system\user\BattleRecord;
 use famima65536\snowballfight\system\user\InMemoryUserRepository;
@@ -98,12 +99,24 @@ class EventListener implements Listener {
 	}
 
 	public function onProjectileHitOnBlock(ProjectileHitBlockEvent $event){
+		$thrower = $event->getEntity()->getOwningEntity();
+
+		if(!($thrower instanceof Player) or ($part = $this->participantRepository->find($thrower->getXuid())) === null or $part->getGame()->getPhase() !== IGame::PHASE_IN_GAME){
+			return;
+		}
+
 		$block = $event->getBlockHit();
 		$world = $event->getEntity()->getWorld();
-		if($block instanceof SnowLayer and $block->getLayers() < 7){
-			$world->setBlockAt($block->x, $block->y, $block->z, $block->setLayers($block->getLayers()+1));
+		if($block instanceof SnowLayer and $block->getLayers() < 8){
+			$world->setBlock($block->getPosition(), $block->setLayers($block->getLayers()+1));
 		}else{
-			$event->getEntity()->getWorld()->setBlock($block->getPosition()->getSide($event->getRayTraceResult()->getHitFace()), VanillaBlocks::SNOW_LAYER());
+			$positionSide = $block->getPosition()->getSide($event->getRayTraceResult()->getHitFace());
+			$blockSide = $world->getBlock($positionSide);
+			if($blockSide instanceof SnowLayer and $blockSide->getLayers() < 8){
+				$world->setBlock($positionSide, $blockSide->setLayers($blockSide->getLayers()+1));
+			}elseif(!$blockSide->isSolid()){
+				$world->setBlock($positionSide, VanillaBlocks::SNOW_LAYER());
+			}
 		}
 	}
 
