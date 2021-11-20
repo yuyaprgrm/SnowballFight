@@ -16,6 +16,7 @@ class Participant {
 	private Team $team;
 
 	private ?Player $player = null;
+	private float $noDamageTime = 0;
 
 	public function __construct(private string $xuid, IGame $game, Team $team){
 		$this->game = $game;
@@ -77,5 +78,13 @@ class Participant {
 
 	public function equalToUser(User $user){
 		return ($user->getXuid() === $this->xuid);
+	}
+
+	public function setTemporalNoDamage(){
+		$this->noDamageTime = microtime(true) + 5;
+	}
+
+	public function isTemporalNoDamage(): bool{
+		return $this->noDamageTime > microtime(true);
 	}
 }

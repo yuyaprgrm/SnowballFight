@@ -15,7 +15,11 @@ use InvalidArgumentException;
 use LogicException;
 use pocketmine\block\BlockIdentifier;
 use pocketmine\block\BlockLegacyIds;
+use pocketmine\block\SnowLayer;
+use pocketmine\block\VanillaBlocks;
 use pocketmine\color\Color;
+use pocketmine\event\entity\EntityDamageEvent;
+use pocketmine\event\entity\ProjectileHitBlockEvent;
 use pocketmine\event\entity\ProjectileHitEntityEvent;
 use pocketmine\event\Listener;
 use pocketmine\event\player\PlayerInteractEvent;
@@ -27,22 +31,22 @@ use pocketmine\event\player\PlayerQuitEvent;
 use famima65536\snowballfight\Loader;
 use pocketmine\item\Snowball;
 use pocketmine\item\VanillaItems;
-use pocketmine\network\mcpe\protocol\types\entity\PlayerMetadataFlags;
+use pocketmine\math\Facing;
 use pocketmine\player\Player;
-use pocketmine\Server;
-use pocketmine\utils\TextFormat;
 
 class EventListener implements Listener {
 
 	private Loader $plugin;
 	private IUserRepository $userRepository;
 	private ApplicationService $applicationService;
+	private ParticipantRepository $participantRepository;
 
 	public function __construct(Loader $plugin){
 		$this->plugin = $plugin;
 		$this->userRepository = new InMemoryUserRepository;
 		$gameRepository = new GameRepository();
-		$this->applicationService = new ApplicationService($gameRepository, $this->userRepository, new ParticipantRepository(), new GameService($gameRepository), $plugin);
+		$this->participantRepository = new ParticipantRepository();
+		$this->applicationService = new ApplicationService($gameRepository, $this->userRepository, $this->participantRepository, new GameService($gameRepository), $plugin);
 	}
 
 	public function onPlayerLogin(PlayerLoginEvent $event): void{
@@ -58,6 +62,7 @@ class EventListener implements Listener {
 		$player = $event->getPlayer();
 		$event->setJoinMessage(Chat::getInstance()->system("system.join.broadcast", [$player->getName()]));
 		$player->sendMessage(Chat::getInstance()->system("system.join.welcome"));
+		$this->participantRepository->find($player->getXuid())?->attach($player);
 	}
 
 	public function onPlayerInteract(PlayerInteractEvent $event){
@@ -73,7 +78,6 @@ class EventListener implements Listener {
 					$player->sendMessage("エラー発生");
 					return;
 				}
-				$player->sendMessage("ゲーム:#{$participant->getGame()->getId()}に参加しました");
 				if($participant->getGame()->isFull()){
 					$this->applicationService->startGame($participant->getGame());
 				}
@@ -93,8 +97,22 @@ class EventListener implements Listener {
 		}
 	}
 
+	public function onProjectileHitOnBlock(ProjectileHitBlockEvent $event){
+		$block = $event->getBlockHit();
+		$world = $event->getEntity()->getWorld();
+		if($block instanceof SnowLayer and $block->getLayers() < 7){
+			$world->setBlockAt($block->x, $block->y, $block->z, $block->setLayers($block->getLayers()+1));
+		}else{
+			$event->getEntity()->getWorld()->setBlock($block->getPosition()->getSide($event->getRayTraceResult()->getHitFace()), VanillaBlocks::SNOW_LAYER());
+		}
+	}
+
+	public function onDamage(EntityDamageEvent $event){
+		$event->cancel();
+	}
+
 	public function onMove(PlayerMoveEvent $event){
-		$event->getPlayer()->sendTip((string) $event->getPlayer()->getPosition());
+//		$event->getPlayer()->sendTip((string) $event->getPlayer()->getPosition());
 	}
 
 	public function onUseItem(PlayerItemUseEvent $event){

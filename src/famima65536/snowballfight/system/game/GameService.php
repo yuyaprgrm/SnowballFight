@@ -16,16 +16,17 @@ class GameService {
 	 * @return bool whether attack is legal or not.
 	 */
 	public function hitSnowball(Participant $from, Participant $to): bool{
-		if($from->getGame() === $to->getGame() and !$from->getTeam()->contains($to)){
+		if($from->getGame() === $to->getGame() and $from->getGame()->getPhase() === IGame::PHASE_IN_GAME and !$from->getTeam()->contains($to) and !$to->isTemporalNoDamage()){
 			$from->attack();
 			$to->attacked();
+			$to->setTemporalNoDamage();
 			return true;
 		}
 
 		return false;
 	}
 
-	public function chooseGameToJoin(GamePolicy $gamePolicy): ?Game{
+	public function chooseGameToJoin(ChooseGamePolicy $gamePolicy): ?Game{
 		foreach($this->gameRepository->findAll() as $game){
 			if($gamePolicy->satisfiedBy($game)){
 				return $game;

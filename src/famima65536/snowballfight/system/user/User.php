@@ -10,8 +10,6 @@ class User {
 	private string $xuid;
 	public BattleRecord $battleRecord;
 
-	private ?Participant $participant;
-
 	public function __construct(string $xuid, BattleRecord $battleRecord){
 		$this->xuid = $xuid;
 		$this->battleRecord = $battleRecord;
@@ -22,14 +20,6 @@ class User {
 	 */
 	public function getXuid(): string{
 		return $this->xuid;
-	}
-
-	public function asParticipant(): ?Participant{
-		return $this->participant;
-	}
-
-	public function isInGame(): bool{
-		return false;
 	}
 
 }

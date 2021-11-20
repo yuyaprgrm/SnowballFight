@@ -14,6 +14,7 @@ class Game implements IGame {
 
 	private static int $currentId = -1;
 	private int $max;
+	private StartGamePolicy $startGamePolicy;
 
 	public static function getNextId(): int{
 		return ++self::$currentId;
@@ -42,6 +43,8 @@ class Game implements IGame {
 		for($i=0; $i<$this->numberOfTeams; $i++){
 			$this->teams->attach(new Team($i, TextFormat::ESCAPE.dechex($i)));
 		}
+
+		$this->startGamePolicy = new StartGamePolicy(min_member_per_team: 1);
 		$this->stage = $stage;
 	}
 
@@ -98,6 +101,10 @@ class Game implements IGame {
 
 	public function getStage(): IStage{
 		return $this->stage;
+	}
+
+	public function getMax(): int{
+		return $this->max;
 	}
 
 	/**
@@ -160,5 +167,21 @@ class Game implements IGame {
 
 	public function getPhase(): int{
 		return $this->phase;
+	}
+
+	public function canStart(): bool{
+		return $this->startGamePolicy->satisfiedBy($this);
+	}
+
+	public function getMinMemberOfTeam(): int{
+		$min = $this->memberPerTeam;
+		/** @var Team $team */
+		foreach($this->teams as $team){
+			$count = $team->count();
+			if($count < $min){
+				$min = $count;
+			}
+		}
+		return $min;
 	}
 }

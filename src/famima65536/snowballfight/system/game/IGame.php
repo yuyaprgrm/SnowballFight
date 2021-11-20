@@ -74,6 +74,7 @@ interface IGame {
 
 	public function chooseTeamToJoin(): Team;
 
+	public function canStart(): bool;
 
-
+	public function getMinMemberOfTeam(): int;
 }

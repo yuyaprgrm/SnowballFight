@@ -30,9 +30,13 @@ class StartGameTask extends Task {
 		$this->time--;
 
 		if($this->time < 0){
-			$this->getHandler()->cancel();
-			$this->applicationService->startGame($this->game);
-			return;
+			if($this->game->canStart()){
+				$this->applicationService->startGame($this->game);
+				$this->getHandler()->cancel();
+				return;
+			}else{
+				$this->time = 20;
+			}
 		}
 
 		$msg = "開始まで {$this->time}";

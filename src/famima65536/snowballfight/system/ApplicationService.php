@@ -3,7 +3,7 @@
 namespace famima65536\snowballfight\system;
 
 use famima65536\snowballfight\system\game\Game;
-use famima65536\snowballfight\system\game\GamePolicy;
+use famima65536\snowballfight\system\game\ChooseGamePolicy;
 use famima65536\snowballfight\system\game\GameRepository;
 use famima65536\snowballfight\system\game\IGame;
 use famima65536\snowballfight\system\game\participant\Participant;
@@ -26,7 +26,7 @@ class ApplicationService {
 	public function __construct(private GameRepository $gameRepository, private IUserRepository $userRepository, private ParticipantRepository $participantRepository, private GameService $gameService, private PluginBase $plugin){
 	}
 
-	public function join(Player $player): Participant{
+	public function join(Player $player, ?ChooseGamePolicy $policy=null): Participant{
 		$xuid = $player->getXuid();
 		$participant = $this->participantRepository->find($xuid);
 
@@ -34,9 +34,11 @@ class ApplicationService {
 			throw new InvalidArgumentException("User has already joined");
 		}
 
-		$game = $this->gameService->chooseGameToJoin(new GamePolicy());
+		$policy ??= new ChooseGamePolicy(2, 4);
+
+		$game = $this->gameService->chooseGameToJoin($policy);
 		if($game === null){
-			$game = new Game(2, 3, new TestStage(Server::getInstance()->getWorldManager()->getDefaultWorld()));
+			$game = new Game($policy->numberOfTeams ?? 2, $policy->memberPerTeam ?? 4, new TestStage(Server::getInstance()->getWorldManager()->getDefaultWorld()));
 			$this->gameRepository->attach($game);
 			$this->plugin->getScheduler()->scheduleRepeatingTask(new StartGameTask($this, $game, 30), 20);
 		}
@@ -46,31 +48,20 @@ class ApplicationService {
 		$participant->attach($player);
 		$this->participantRepository->attach($participant);
 
+
+		$joinMessage = Chat::getInstance()->game("game.join.broadcast", [$player->getName(), $game->getId(), $game->getParticipants()->count(), $game->getMax()]);
+		/** @var Participant $p */
+		foreach($game->getParticipants() as $p){
+			$p->asPlayer()?->sendMessage($joinMessage);
+		}
 		$player->setDisplayName($participant->getTeam()->getColorFormat().$player->getName()."§f");
 		return $participant;
 	}
 
-	public function joinSoloGame(Player $player): Participant{
-		$xuid = $player->getXuid();
-		$participant = $this->participantRepository->find($xuid);
 
-		if($participant !== null){
-			throw new InvalidArgumentException("User has already joined");
-		}
-
-		$game = $this->gameService->chooseGameToJoin(new GamePolicy(memberPerTeam: 1));
-		if($game === null){
-			$game = new Game(10, 1, new TestStage(Server::getInstance()->getWorldManager()->getDefaultWorld()));
-			$this->gameRepository->attach($game);
-			$this->plugin->getScheduler()->scheduleRepeatingTask(new StartGameTask($this, $game, 30), 20);
-		}
-		$user = $this->userRepository->find($xuid);
-		$participant = $game->join($user);
-		$participant->attach($player);
-		$this->participantRepository->attach($participant);
-
-		$player->setDisplayName($participant->getTeam()->getColorFormat().$player->getName()."§f");
-		return $participant;
+	public function throwSnowball(Player $from): void{
+		$thrower = $this->participantRepository->find($from->getXuid());
+		$thrower?->throwSnowball();
 	}
 
 	public function hitSnowball(Player $from, Player $to): void{
@@ -102,6 +93,7 @@ class ApplicationService {
 				/** @var Participant $member */
 				$player = $member->asPlayer();
 				if($player !== null){
+					$player->sendTitle("Start!");
 					$player->getInventory()->setItemInHand($snowball);
 					$player->teleport($position);
 				}
@@ -110,7 +102,42 @@ class ApplicationService {
 
 		$game->start();
 
+		$this->plugin->getScheduler()->scheduleRepeatingTask(new FinishGameTask($this, $game, 180), 20);
+
 		return true;
+	}
+
+	public function finishGame(Game $game){
+		/** @var Participant $participant */
+		foreach($game->getParticipants() as $participant){
+			$player = $participant->asPlayer();
+			if($player !== null){
+				$player->setImmobile();
+				$player->sendTitle("Finished");
+			}
+		}
+
+		$game->finish();
+
+		$this->plugin->getScheduler()->scheduleDelayedTask(new ClosureTask(function()use($game):void{
+			$this->resultGame($game);
+		}), 20*5);
+	}
+
+	public function resultGame(Game $game){
+		/** @var Participant $participant */
+		foreach($game->getParticipants() as $participant){
+			$player = $participant->asPlayer();
+			if($player !== null){
+				$player->setImmobile(false);
+				$player->sendMessage("==================");
+				$player->sendMessage("hit rate {$participant->getAttack()}/{$participant->getThrow()}");
+				$player->sendMessage("==================");
+			}
+			$this->participantRepository->detach($participant);
+		}
+		$this->gameRepository->detach($game);
+
 	}
 
 }
